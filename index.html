@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>逐句錄音</title>
+<style>
+/* 尺度：間距 4 8 12 16 24 32 48 64｜字級 12 14 16 18 20 24 30 36｜字重 500 / 700 */
+:root{
+  --blue-600:hsl(232,100%,56%);--blue-700:hsl(232,85%,44%);--blue-100:hsl(232,100%,96%);--blue-200:hsl(232,90%,90%);
+  --g-50:hsl(45,20%,97%);--g-100:hsl(45,14%,94%);--g-200:hsl(45,10%,88%);--g-300:hsl(45,6%,78%);--g-500:hsl(40,4%,46%);--g-700:hsl(40,5%,28%);--g-900:hsl(40,8%,10%);
+  --red-600:hsl(4,74%,48%);--green-700:hsl(160,75%,27%);--green-100:hsl(155,60%,93%);
+  --surface:#fff;--page:var(--g-50);--line:var(--g-200);--line-strong:var(--g-300);
+  --text:var(--g-900);--text-2:var(--g-700);--text-3:var(--g-500);
+  --action:var(--blue-600);--action-ink:#fff;--tint:var(--blue-100);--hover:var(--g-100);
+  --sh-1:0 1px 3px hsla(0,0%,0%,.12);--sh-3:0 -4px 16px hsla(0,0%,0%,.08);
+  --r:2px;--fs:22px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --surface:hsl(230,8%,13%);--page:hsl(230,8%,9%);--line:hsl(230,6%,22%);--line-strong:hsl(230,6%,34%);--hover:hsl(230,8%,17%);
+  --text:hsl(45,15%,94%);--text-2:hsl(45,6%,76%);--text-3:hsl(45,4%,62%);
+  --action:hsl(232,100%,66%);--tint:hsl(232,40%,20%);--blue-700:hsl(232,100%,76%);
+  --red-600:hsl(4,85%,60%);--green-700:hsl(155,55%,55%);--green-100:hsl(155,35%,16%);
+  --g-100:hsl(230,8%,17%);--g-200:hsl(230,6%,24%);--g-300:hsl(230,6%,34%);
+  --sh-1:0 0 0 transparent;--sh-3:0 -4px 16px hsla(0,0%,0%,.5);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--text);font:500 16px/1.5 -apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:var(--r);padding:8px 16px;font-weight:700;background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-strong)}
+button:hover{background:var(--hover)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--action);outline-offset:2px}
+button.primary{background:var(--action);color:var(--action-ink);box-shadow:var(--sh-1)}
+button.primary:hover{background:var(--blue-700)}
+button.danger{background:var(--red-600);color:#fff;box-shadow:var(--sh-1)}
+button.ok{background:var(--green-700);color:#fff;box-shadow:var(--sh-1)}
+button.link{background:none;box-shadow:none;color:var(--text-2);padding:8px;font-weight:500}
+button.link:hover{color:var(--text);text-decoration:underline}
+button:disabled{opacity:.4;cursor:default}
+input,textarea,select{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r);padding:8px 12px}
+textarea{width:100%;line-height:1.8;resize:vertical}
+kbd{font:600 12px/1 ui-monospace,Menlo,monospace;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;padding:2px 6px;color:var(--text-2);background:var(--surface)}
+.muted{color:var(--text-3)}.small{font-size:14px}
+
+.brand{background:var(--blue-600);color:#fff}
+.brand .in{max-width:1080px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:16px}
+.brand b{font-size:18px;letter-spacing:.06em;font-weight:800;cursor:pointer}
+.brand .crumb{color:var(--blue-200);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 24px 160px}
+
+.steps{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text-3);margin-bottom:24px;flex-wrap:wrap}
+.steps span{display:flex;align-items:center;gap:8px}
+.steps i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:var(--g-200);color:var(--text-2)}
+.steps .on{color:var(--text);font-weight:700}.steps .on i{background:var(--action);color:#fff}
+.steps .done i{background:var(--green-700);color:#fff}
+.steps .sep{width:24px;height:1px;background:var(--line-strong)}
+
+.home{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:32px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:24px}
+h1{font-size:30px;line-height:1.2;margin:0 0 8px;font-weight:800}
+h2{font-size:18px;margin:0 0 16px;font-weight:700}
+.field{margin-top:16px}
+.field label{display:block;font-size:14px;color:var(--text-2);margin-bottom:8px}
+.field input{width:100%}
+.opts{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:14px;color:var(--text-2)}
+.opts label{display:flex;gap:8px;align-items:center}
+.actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
+.proj{display:block;padding:16px 0;border-top:1px solid var(--line);cursor:pointer;color:inherit;text-decoration:none}
+.proj:first-of-type{border-top:0;padding-top:0}
+.proj .t{font-weight:700;font-size:16px}
+.proj:hover .t{color:var(--action)}
+.proj .m{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--text-3);margin-top:4px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--g-100);color:var(--text-2)}
+.chip.done{background:var(--green-100);color:var(--green-700)}
+.chip.prog{background:var(--tint);color:var(--blue-700)}
+.bar{height:4px;background:var(--g-200);border-radius:2px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--green-700)}
+.empty{color:var(--text-3);font-size:14px;line-height:1.7}
+
+.editor{display:grid;grid-template-columns:48px 1fr;border:1px solid var(--line-strong);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.gutter{background:var(--g-100);color:var(--text-3);font:500 14px/32px ui-monospace,Menlo,monospace;text-align:right;padding:12px 8px;user-select:none;overflow:hidden}
+.editor textarea{border:0;border-radius:0;font-size:18px;line-height:32px;padding:12px 16px;min-height:420px;white-space:pre;overflow-x:auto}
+
+.head{margin-bottom:16px}
+.head h1{font-size:24px;margin:0}
+.toolbar{position:sticky;top:0;z-index:5;background:var(--page);display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:16px;flex-wrap:wrap}
+.toolbar .grow{flex:1}
+.mic{display:flex;gap:8px;align-items:center}
+.mic select{max-width:220px;padding:8px}
+.meter{width:96px;height:8px;background:var(--g-200);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--green-700)}
+.meter.hot i{background:var(--red-600)}
+.menu{position:relative}
+.menu .pop{position:absolute;right:0;top:calc(100% + 8px);background:var(--surface);border:1px solid var(--line);border-radius:4px;box-shadow:0 10px 24px hsla(0,0%,0%,.14);padding:8px;min-width:340px;display:none;z-index:9}
+.menu.open .pop{display:block}
+.pop > button{display:block;width:100%;text-align:left;box-shadow:none;font-weight:500;padding:8px 12px}
+.pop .sec{border-top:1px solid var(--line);margin-top:8px;padding:12px 12px 4px;font-size:14px;color:var(--text-2)}
+.pop .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.pop .row button{padding:4px 10px;white-space:nowrap}
+.pop .row{flex-wrap:wrap}
+.pop input[type=number]{width:72px;text-align:center;padding:4px 8px}
+.beat{width:12px;height:12px;border-radius:50%;background:var(--g-300);display:inline-block}
+.beat.on{background:var(--action)}.beat.on.acc{background:var(--red-600)}
+.metro-on{display:none;align-items:center;gap:8px;font-size:14px;color:var(--text-2)}
+.metro-on.show{display:flex}
+
+.sent{display:grid;grid-template-columns:40px 1fr auto;gap:16px;align-items:baseline;padding:12px 16px;border-radius:4px;cursor:pointer;color:var(--text-3)}
+.sent:hover{background:var(--hover)}
+.sent .n{font:500 14px ui-monospace,Menlo,monospace;text-align:right}
+.sent .x{font-size:var(--fs);line-height:1.6;letter-spacing:.03em;word-break:break-word}
+.sent .s{font-size:14px;white-space:nowrap}
+.sent.done .s{color:var(--green-700);font-weight:700}
+.sent.cur{background:var(--surface);color:var(--text);box-shadow:inset 4px 0 0 var(--action),var(--sh-1)}
+.sent.cur .x{font-size:calc(var(--fs) * 1.25);font-weight:700}
+.sent.recording{box-shadow:inset 4px 0 0 var(--red-600),var(--sh-1)}
+
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);box-shadow:var(--sh-3);z-index:6}
+.dock .in{max-width:1080px;margin:0 auto;padding:16px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.dock .info{flex:1;min-width:200px}
+.dock .where{font-size:14px;color:var(--text-3)}
+.dock .state{font-size:16px;font-weight:700}
+.dock .state.rec{color:var(--red-600)}
+.dock .btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dock .big{padding:12px 24px;font-size:16px;min-width:140px}
+.dock .hint{width:100%;font-size:12px;color:var(--text-3);display:flex;gap:16px;flex-wrap:wrap}
+
+.modal{position:fixed;inset:0;background:hsla(0,0%,0%,.4);display:grid;place-items:center;z-index:20;padding:24px}
+.modal .box{background:var(--surface);border-radius:4px;padding:24px;width:min(860px,100%);max-height:90vh;display:flex;flex-direction:column;gap:12px;box-shadow:0 15px 35px hsla(0,0%,0%,.25)}
+.modal .editor textarea{min-height:50vh}
+
+.aistep{display:flex;gap:16px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.aistep > b{flex:none;width:28px;height:28px;border-radius:50%;background:var(--action);color:#fff;display:grid;place-items:center;font-size:14px}
+.row2{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.row2 a{color:var(--action);font-weight:700}
+.toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);background:var(--g-900);color:var(--g-50);padding:12px 16px;border-radius:var(--r);font-size:14px;display:none;z-index:30;max-width:90vw}
+
+@media (max-width:760px){
+  .wrap{padding:24px 16px 200px}.brand .in{padding:12px 16px}.dock .in{padding:12px 16px}
+  .home{grid-template-columns:1fr;gap:24px}
+  h1{font-size:24px}
+  .sent{grid-template-columns:28px 1fr;gap:4px 12px;padding:12px}
+  .sent .s{grid-column:2}
+  .dock .big{min-width:0;flex:1}
+  .dock .hint{display:none}
+  .mic select{max-width:150px}
+}
+</style>
+</head>
+<body>
+<header class="brand"><div class="in"><b id="logo">逐句錄音</b><span class="crumb" id="crumb"></span></div></header>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m, ms = 2400) { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms); }
+async function api(path, opt = {}) { const r = await fetch(path, { ...opt, headers: { 'X-NR': '1', ...(opt.headers || {}) } }); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; }
+const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
+const fmtDur = s => s >= 60 ? `${Math.floor(s / 60)} 分 ${Math.round(s % 60)} 秒` : `${Math.round(s)} 秒`;
+const steps = n => `<div class="steps">${['貼上逐字稿', '調整斷句', '逐句錄音'].map((t, i) => `<span class="${i + 1 === n ? 'on' : i + 1 < n ? 'done' : ''}"><i>${i + 1 < n ? '✓' : i + 1}</i>${t}</span>`).join('<span class="sep"></span>')}</div>`;
+$('#logo').onclick = () => home();
+
+/* ---------- 斷句 ---------- */
+const MODES = [
+  { v: 15, name: '短句', hint: '約 15 字，一口氣一句', ai: '一句大約 8 到 15 個字，一口氣講得完' },
+  { v: 25, name: '一般', hint: '約 25 字，一個完整句子', ai: '一句是一個完整的句子，大約 15 到 25 個字' },
+  { v: 40, name: '長句', hint: '約 40 字，兩三句連著講', ai: '每段是兩三句連在一起講的話，大約 25 到 40 個字' },
+  { v: -1, name: '整段', hint: '照原稿的段落', ai: '照原稿的段落分，一個段落一行，段落太長（超過 80 字）再從句號切開' },
+];
+function splitScript(t, max, dropNotes) {
+  t = t.replace(/\r/g, '');
+  if (max === -1) { // 整段：只照原稿換行分段
+    if (dropNotes) t = t.replace(/[（(【\[〔][^）)】\]〕\n]*[）)】\]〕]/g, '');
+    return t.split(/\n+/).map(l => l.replace(/^\s*(#+|[-*•>]|\d+[.、])\s*/, '').trim()).filter(l => l && !/^```/.test(l));
+  }
+  if (dropNotes) t = t.replace(/[（(【\[〔][^）)】\]〕\n]*[）)】\]〕]/g, '');
+  const out = [], len = x => [...x].length;
+  for (let line of t.split(/\n+/)) {
+    line = line.replace(/^\s*(#+|[-*•>]|\d+[.、])\s*/, '').trim();
+    if (!line || /^```/.test(line)) continue;
+    const parts = line.match(/[^。！？!?；;…]+[。！？!?；;…」』”"]*|[。！？!?；;…]+/g) || [line];
+    const pieces = [];
+    for (let s of parts) {
+      s = s.trim(); if (!s || /^[。！？!?；;…，,\s]+$/.test(s)) continue;
+      if (max && len(s) > max) pieces.push(...splitLong(s, max)); else pieces.push(s);
+    }
+    // 同一段裡，相鄰小段合併到接近設定長度；3 字以內的一律併進下一句
+    let cur = '';
+    for (const pc of pieces) {
+      if (!cur) cur = pc;
+      else if (len(cur) <= 3 || (max && len(cur + pc) <= max)) cur += pc;
+      else { out.push(cur); cur = pc; }
+    }
+    if (cur) out.push(cur);
+  }
+  return out;
+}
+function splitLong(s, max) {
+  const segs = s.match(/[^，,、：:]+[，,、：:]?/g) || [s];
+  const res = []; let cur = '';
+  for (const g of segs) { if (cur && [...(cur + g)].length > max) { res.push(cur); cur = g; } else cur += g; }
+  if (cur) res.push(cur);
+  return res;
+}
+function lineEditor(id, text) {
+  return `<div class="editor"><div class="gutter" id="${id}-g"></div><textarea id="${id}" spellcheck="false" aria-label="句子，一行一句">${esc(text)}</textarea></div>`;
+}
+function bindEditor(id, onCount) {
+  const ta = $('#' + id), g = $('#' + id + '-g');
+  const upd = () => {
+    let k = 0;
+    g.innerHTML = ta.value.split('\n').map(l => l.trim() ? ++k : '').join('<br>');
+    g.style.height = ta.offsetHeight + 'px'; g.scrollTop = ta.scrollTop;
+    if (onCount) onCount(k);
+  };
+  ta.addEventListener('input', upd); ta.addEventListener('scroll', () => g.scrollTop = ta.scrollTop);
+  new ResizeObserver(upd).observe(ta); upd();
+}
+
+/* ---------- 第一步：貼稿＋最近的稿子 ---------- */
+let draft = { title: '', script: '' };
+async function home() {
+  leaveProject(); $('#crumb').textContent = '';
+  if (location.hash) history.replaceState(null, '', location.pathname);
+  let max = +(pref('mode') || 15); if (!MODES.some(m => m.v === max)) max = 15;
+  app.innerHTML = `${steps(1)}
+  <div class="home">
+    <section class="panel">
+      <h1>貼上逐字稿</h1>
+      <p class="muted small" style="margin:0">會照你選的長短自動切好，下一步可以再調整。</p>
+      <div class="field"><label for="title">影片名稱</label><input id="title" placeholder="例如：SV003 法務助手安裝教學" value="${esc(draft.title)}"></div>
+      <div class="field"><label for="script">逐字稿</label><textarea id="script" rows="12" placeholder="把整份稿子貼在這裡">${esc(draft.script)}</textarea></div>
+      <div class="opts">
+        <label>每次錄多長 <select id="max">${MODES.map(m => `<option value="${m.v}" ${m.v === max ? 'selected' : ''}>${m.name}（${m.hint}）</option>`).join('')}</select></label>
+        <label><input type="checkbox" id="notes" checked>去掉括號裡的畫面說明</label>
+      </div>
+      <div class="actions"><button id="ai">用 AI 斷句…</button><button class="primary" id="go">下一步：調整斷句</button></div>
+    </section>
+    <section>
+      <h2>最近的稿子</h2>
+      <div id="list" class="empty">讀取中…</div>
+    </section>
+  </div>`;
+  $('#title').oninput = e => draft.title = e.target.value;
+  $('#script').oninput = e => draft.script = e.target.value;
+  $('#go').onclick = () => {
+    pref('mode', $('#max').value);
+    const lines = splitScript($('#script').value, +$('#max').value, $('#notes').checked);
+    if (!lines.length) return toast('先貼上逐字稿');
+    review(lines);
+  };
+  $('#ai').onclick = aiSplit;
+  try {
+    const ps = await api('/api/projects');
+    $('#list').className = '';
+    $('#list').innerHTML = ps.length ? ps.map(p => {
+      const st = p.done === 0 ? ['', '還沒錄'] : p.done === p.total ? ['done', '錄完了'] : ['prog', `錄到第 ${p.done} 句`];
+      return `<a class="proj" href="#p=${encodeURIComponent(p.slug)}" data-s="${esc(p.slug)}"><div class="t">${esc(p.title)}</div>
+        <div class="m"><span class="chip ${st[0]}">${st[1]}</span><span>${p.done} / ${p.total} 句</span><span>${esc(p.created.slice(5))}</span></div>
+        <div class="bar"><i style="width:${p.total ? 100 * p.done / p.total : 0}%"></i></div></a>`;
+    }).join('') : '<p class="empty">還沒有稿子。左邊貼上第一份，或請 Claude Code 把稿子送進來。</p>';
+    document.querySelectorAll('.proj').forEach(el => el.onclick = e => { e.preventDefault(); openProject(el.dataset.s); });
+  } catch (e) { $('#list').textContent = '讀不到資料：' + e.message; }
+}
+
+/* ---------- 方法①：複製提示詞給自己的 AI ---------- */
+const AI_PROMPT = `請幫我把下面的影片逐字稿斷句，方便我一句一句錄音。
+規則：
+1. {LEN}；照講話換氣的位置切
+2. 不要把數字、英文詞、專有名詞切開
+3. 拿掉括號裡的畫面說明和出處標記
+4. 不要改字、不要加字，保留原本的標點
+5. 只回傳結果：一行一句，不要編號，不要其他說明
+
+逐字稿：
+`;
+function aiSplit() {
+  const script = $('#script').value.trim();
+  if (!script) return toast('先貼上逐字稿');
+  const box = document.createElement('div'); box.className = 'modal';
+  box.innerHTML = `<div class="box">
+    <h2 style="margin:0">用 AI 斷句</h2>
+    <p class="muted small" style="margin:0">用你自己的 ChatGPT 或 Claude，照換氣點斷，比自動斷句更自然。長短照你選的「${esc((MODES.find(m => m.v === +$('#max').value) || MODES[0]).name)}」。</p>
+    <div class="aistep"><b>1</b><div><div>複製提示詞（已經連同你的逐字稿一起準備好）</div>
+      <div class="row2"><button class="primary" id="cp">複製提示詞</button><a href="https://claude.ai/new" target="_blank" rel="noopener">開 Claude</a><a href="https://chatgpt.com/" target="_blank" rel="noopener">開 ChatGPT</a></div></div></div>
+    <div class="aistep"><b>2</b><div>貼到 AI 的對話框送出</div></div>
+    <div class="aistep"><b>3</b><div style="flex:1"><div>把 AI 回傳的結果整段複製，貼在這裡</div>
+      <textarea id="aiout" rows="8" placeholder="一行一句"></textarea></div></div>
+    <div class="actions" style="margin-top:0"><button class="link" id="aino">取消</button><button class="primary" id="aiok">用這個結果</button></div>
+  </div>`;
+  document.body.appendChild(box);
+  $('#cp').onclick = async () => {
+    const mode = MODES.find(m => m.v === +$('#max').value) || MODES[0];
+    const text = AI_PROMPT.replace('{LEN}', mode.ai) + script;
+    try { await navigator.clipboard.writeText(text); toast('已複製，去 AI 那邊貼上'); }
+    catch (e) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); toast('已複製'); }
+  };
+  $('#aino').onclick = () => box.remove();
+  $('#aiok').onclick = () => {
+    const lines = $('#aiout').value.split('\n').map(l => l.replace(/^\s*(\d+[.、)]|[-*•])\s*/, '').trim()).filter(Boolean);
+    if (!lines.length) return toast('先貼上 AI 的結果');
+    box.remove(); review(lines);
+  };
+}
+
+/* ---------- 第二步：調整斷句 ---------- */
+function review(lines) {
+  $('#crumb').textContent = draft.title || '';
+  app.innerHTML = `${steps(2)}
+  <section class="panel">
+    <div style="display:flex;gap:16px;align-items:baseline;flex-wrap:wrap"><h1 style="flex:1">調整斷句</h1><span class="muted" id="cnt"></span></div>
+    <p class="muted small" style="margin:0 0 16px">一行就是一句，錄音時一次錄一行。兩句想一起講：刪掉中間的換行。一句想拆開：在要切的地方按 Enter。</p>
+    ${lineEditor('lines', lines.join('\n'))}
+    <div class="actions"><button class="link" id="back">‹ 回去改逐字稿</button><button class="primary" id="create">開始錄音</button></div>
+  </section>`;
+  bindEditor('lines', k => $('#cnt').textContent = `共 ${k} 句`);
+  $('#back').onclick = home;
+  $('#create').onclick = async () => {
+    const sentences = $('#lines').value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (!sentences.length) return toast('沒有句子');
+    $('#create').disabled = true;
+    try {
+      const r = await api('/api/projects', { method: 'POST', body: JSON.stringify({ title: draft.title.trim() || '未命名逐字稿', sentences, script: draft.script }) });
+      draft = { title: '', script: '' }; openProject(r.slug);
+    } catch (e) { toast('建立失敗：' + e.message); $('#create').disabled = false; }
+  };
+}
+
+/* ---------- 麥克風 ---------- */
+let ctx, stream, node, sink, peak = 0, rec = null;
+const WORKLET = `class R extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('rec',R)`;
+async function startMic(deviceId) {
+  stopMic();
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
+  ctx = new AudioContext({ latencyHint: 'interactive' });
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
+  const src = ctx.createMediaStreamSource(stream);
+  node = new AudioWorkletNode(ctx, 'rec'); sink = ctx.createGain(); sink.gain.value = 0;
+  src.connect(node); node.connect(sink); sink.connect(ctx.destination);
+  node.port.onmessage = e => {
+    const d = e.data; let m = 0; for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > m) m = v; }
+    peak = Math.max(m, peak * 0.93);
+    if (rec && rec.armed) { rec.chunks.push(d); rec.max = Math.max(rec.max || 0, m); }
+  };
+  meterLoop();
+}
+function stopMic() { if (stream) stream.getTracks().forEach(t => t.stop()); if (ctx) ctx.close(); stream = ctx = null; rec = null; }
+function meterLoop() {
+  const m = $('#meter'); if (!ctx || !m) return;
+  m.firstChild.style.width = Math.min(100, peak * 140) + '%';
+  m.classList.toggle('hot', peak > 0.95);
+  if (rec) { const t = $('#timer'); if (t) t.textContent = rec.armed ? ((performance.now() - rec.t0) / 1000).toFixed(1) + ' 秒' : '準備… ' + Math.max(0, (rec.t0 - performance.now()) / 1000).toFixed(1); }
+  requestAnimationFrame(meterLoop);
+}
+function toWav(chunks, rate, headCut = 0.12) {
+  let n = chunks.reduce((a, c) => a + c.length, 0);
+  const all = new Float32Array(n); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+  const a = Math.min(Math.floor(rate * headCut), all.length), b = Math.max(a, all.length - Math.floor(rate * 0.25)); // 切掉頭尾按鍵聲
+  const pcm = all.subarray(a, b); n = pcm.length;
+  const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, pcm[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+  return { blob: new Blob([buf], { type: 'audio/wav' }), dur: n / rate };
+}
+
+/* ---------- 第三步：錄音 ---------- */
+let P = null, slug = null, cur = 0, saving = false, playing = false;
+const player = new Audio();
+function leaveProject() { metroStop(); playing = false; player.pause(); stopMic(); P = null; }
+async function openProject(s) {
+  leaveProject();
+  slug = s; history.replaceState(null, '', '#p=' + encodeURIComponent(s));
+  P = await api('/api/project/' + encodeURIComponent(s));
+  cur = P.sentences.findIndex(x => !x.file); if (cur < 0) cur = 0;
+  document.documentElement.style.setProperty('--fs', (pref('fs') || 22) + 'px');
+  $('#crumb').textContent = P.title;
+  app.innerHTML = `${steps(3)}
+  <div class="head"><h1>${esc(P.title)}</h1><div class="muted small" id="prog"></div><div class="bar" style="max-width:360px"><i id="progbar"></i></div></div>
+  <div class="toolbar">
+    <div class="mic"><select id="dev" aria-label="麥克風"><option>麥克風讀取中…</option></select><div class="meter" id="meter" title="音量"><i></i></div></div>
+    <span class="metro-on" id="metroOn"><span class="beat" id="beat"></span><span id="bpmShow"></span> 拍/分</span>
+    <span class="grow"></span>
+    <button id="playall">▶ 全部播放</button>
+    <div class="menu" id="dlm"><button>下載 ▾</button><div class="pop">
+      <button data-dl="wav">合併成一個音檔（WAV）<div class="muted small">句子間停頓照「設定」，音量拉到影片標準</div></button>
+      <button data-dl="srt">字幕檔（SRT）<div class="muted small">時間照錄音長度算好</div></button>
+      <button data-dl="zip">全部分句（ZIP）</button>
+    </div></div>
+    <div class="menu" id="setm"><button>設定 ▾</button><div class="pop">
+      <button id="restr">調整斷句…</button>
+      <div class="sec">按下錄音後，等幾秒才開始收音
+        <div class="row" id="delayRow">${[0, 0.2, 0.3, 0.5, 0.8, 1].map(v => `<button data-delay="${v}">${v} 秒</button>`).join('')}</div>
+        <div class="muted small" style="margin-top:4px">按鍵聲、吸氣聲就不會錄進去</div>
+      </div>
+      <div class="sec">合併音檔時，句子之間停多久
+        <div class="row" id="gapRow">${[0.2, 0.35, 0.5, 0.8].map(v => `<button data-gap="${v}">${v} 秒</button>`).join('')}</div>
+      </div>
+      <div class="sec">字的大小<div class="row"><button id="fsm">A−</button><button id="fsp">A＋</button></div></div>
+      <div class="sec">節拍器
+        <div class="row"><button id="mt">開始</button><button id="bm">−</button><input type="number" id="bpm" min="30" max="240" aria-label="拍速"><button id="bp">＋</button><span>拍/分</span></div>
+        <div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="msnd">發出聲音（要戴耳機，不然會錄進去）</label></div>
+      </div>
+    </div></div>
+  </div>
+  <div id="list"></div>
+  <div class="dock"><div class="in">
+    <div class="info"><div class="where" id="where"></div><div class="state" id="state"></div></div>
+    <div class="btns" id="btns"></div>
+    <div class="hint"><span><kbd>空白鍵</kbd> 開始／完成</span><span><kbd>R</kbd> 重錄</span><span><kbd>Esc</kbd> 取消</span><span><kbd>↑</kbd><kbd>↓</kbd> 換句</span><span><kbd>P</kbd> 播放這句</span><span><kbd>M</kbd> 節拍器</span></div>
+  </div></div>`;
+  for (const id of ['dlm', 'setm']) $('#' + id + ' > button').onclick = e => { e.stopPropagation(); document.querySelectorAll('.menu').forEach(m => m.id !== id && m.classList.remove('open')); $('#' + id).classList.toggle('open'); };
+  document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => { $('#dlm').classList.remove('open'); location.href = `/api/project/${encodeURIComponent(slug)}/export?type=${b.dataset.dl}&gap=${pref('gap') || 0.35}`; });
+  $('#restr').onclick = () => { $('#setm').classList.remove('open'); restructure(); };
+  $('#fsm').onclick = () => font(-2); $('#fsp').onclick = () => font(2);
+  $('#playall').onclick = playAll;
+  setupMetro();
+  const mark = () => {
+    document.querySelectorAll('[data-delay]').forEach(b => b.classList.toggle('primary', +b.dataset.delay === +(pref('delay') || 0)));
+    document.querySelectorAll('[data-gap]').forEach(b => b.classList.toggle('primary', +b.dataset.gap === +(pref('gap') || 0.35)));
+  };
+  document.querySelectorAll('[data-delay]').forEach(b => b.onclick = e => { e.stopPropagation(); pref('delay', b.dataset.delay); mark(); toast(`按下錄音後 ${b.dataset.delay} 秒才開始收音`); });
+  document.querySelectorAll('[data-gap]').forEach(b => b.onclick = e => { e.stopPropagation(); pref('gap', b.dataset.gap); mark(); toast(`合併時句子間停 ${b.dataset.gap} 秒`); });
+  mark();
+  render();
+  await setupDevices();
+}
+document.addEventListener('click', e => { if (!e.target.closest('.menu')) document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')); });
+function font(d) { const v = Math.max(16, Math.min(40, +(pref('fs') || 22) + d)); pref('fs', v); document.documentElement.style.setProperty('--fs', v + 'px'); }
+async function setupDevices() {
+  const sel = $('#dev');
+  const fill = async () => {
+    const ds = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+    sel.innerHTML = ds.map(d => `<option value="${esc(d.deviceId)}">${esc(d.label || '麥克風')}</option>`).join('');
+    const pick = ds.find(d => d.deviceId === pref('mic')) || ds.find(d => d.deviceId === 'default') || ds[0];
+    if (pick) sel.value = pick.deviceId;
+    return pick;
+  };
+  try {
+    await startMic(pref('mic') || undefined);
+    const pick = await fill();
+    if (pick && stream.getAudioTracks()[0].getSettings().deviceId !== pick.deviceId) await startMic(pick.deviceId);
+  } catch (e) { sel.innerHTML = '<option>拿不到麥克風</option>'; toast('拿不到麥克風：' + e.message, 5000); }
+  sel.onchange = async () => { pref('mic', sel.value); await startMic(sel.value); toast('已切換麥克風'); };
+  dock();
+}
+function render() {
+  const done = P.sentences.filter(x => x.file);
+  const total = done.reduce((a, x) => a + x.dur, 0);
+  $('#prog').textContent = `已錄 ${done.length} / ${P.sentences.length} 句${total ? '｜共 ' + fmtDur(total) : ''}`;
+  $('#progbar').style.width = (P.sentences.length ? 100 * done.length / P.sentences.length : 0) + '%';
+  $('#list').innerHTML = P.sentences.map((s, i) => `<div class="sent ${i === cur ? 'cur' : ''} ${s.file ? 'done' : ''} ${rec && rec.id === s.id ? 'recording' : ''}" data-i="${i}">
+    <div class="n">${i + 1}</div><div class="x">${esc(s.text)}</div><div class="s">${s.file ? '✓ ' + s.dur.toFixed(1) + ' 秒' : '未錄'}</div></div>`).join('');
+  document.querySelectorAll('.sent').forEach(el => el.onclick = () => { if (rec) return; cur = +el.dataset.i; render(); });
+  const el = document.querySelector('.sent.cur');
+  if (el) { const r = el.getBoundingClientRect(); if (r.top < 120 || r.bottom > innerHeight - 160) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  dock();
+}
+function dock() {
+  const s = P && P.sentences[cur]; if (!s || !$('#btns')) return;
+  $('#where').textContent = `第 ${cur + 1} / ${P.sentences.length} 句`;
+  const st = $('#state');
+  if (rec) {
+    st.className = 'state rec'; st.innerHTML = rec.armed ? `● 錄音中　<span id="timer">0.0 秒</span>` : `<span style="color:var(--text-2)">○ 準備開始錄</span>　<span id="timer"></span>`;
+    $('#btns').innerHTML = `<button class="ok big" data-a="finish">✓ 完成</button><button data-a="restart">↻ 重錄</button><button class="link" data-a="cancel">取消</button>`;
+  } else if (saving) {
+    st.className = 'state'; st.textContent = '存檔中…'; $('#btns').innerHTML = '';
+  } else {
+    st.className = 'state'; st.textContent = s.file ? `這句錄好了（${s.dur.toFixed(1)} 秒）｜Shift＋空白鍵重錄` : '按空白鍵開始錄這句';
+    $('#btns').innerHTML = s.file
+      ? `<button data-a="play">▶ 聽這句</button><button class="link" data-a="edit">改字</button><button class="link" data-a="del">刪除錄音</button><button class="danger big" data-a="rec">● 重新錄</button>`
+      : `<button class="link" data-a="edit">改字</button><button class="danger big" data-a="rec">● 錄音</button>`;
+  }
+  $('#btns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => action(b.dataset.a));
+}
+async function action(a) {
+  const s = P.sentences[cur];
+  if (a === 'rec') return start();
+  if (a === 'finish') return finish();
+  if (a === 'cancel') return cancel();
+  if (a === 'restart') return restart();
+  if (a === 'play') return playOne();
+  if (a === 'del') {
+    if (!confirm('刪除這句的錄音？（會先放到資料夾裡的「_刪除」，救得回來）')) return;
+    Object.assign(s, await api(`/api/project/${encodeURIComponent(slug)}/audio?id=${s.id}`, { method: 'DELETE' })); render(); return;
+  }
+  if (a === 'edit') {
+    const t = prompt(s.file ? '改這句的字（改了之後這句要重錄）' : '改這句的字', s.text);
+    if (t === null || t.trim() === s.text) return;
+    Object.assign(s, await api(`/api/project/${encodeURIComponent(slug)}/sentences`, { method: 'POST', body: JSON.stringify({ id: s.id, text: t }) })); render();
+  }
+}
+function playOne() { const s = P.sentences[cur]; if (!s.file) return; stopPlayAll(); player.src = `/audio/${encodeURIComponent(slug)}/${s.file}?t=${Date.now()}`; player.onended = null; player.play(); }
+function start() {
+  if (!ctx) return toast('麥克風還沒開');
+  if (rec || saving) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  stopPlayAll(); player.pause();
+  const delay = +(pref('delay') || 0);
+  rec = { id: P.sentences[cur].id, chunks: [], t0: performance.now() + delay * 1000, max: 0, armed: delay === 0, delay };
+  if (delay) rec.timer = setTimeout(() => { if (rec) { rec.armed = true; rec.t0 = performance.now(); dock(); } }, delay * 1000);
+  render();
+}
+function restart() {
+  if (!rec) return;
+  clearTimeout(rec.timer); rec.chunks = []; rec.max = 0;
+  rec.armed = rec.delay === 0; rec.t0 = performance.now() + rec.delay * 1000;
+  if (rec.delay) rec.timer = setTimeout(() => { if (rec) { rec.armed = true; rec.t0 = performance.now(); dock(); } }, rec.delay * 1000);
+  dock(); toast('重新開始錄這句');
+}
+function cancel() { if (!rec) return; clearTimeout(rec.timer); rec = null; render(); toast('已取消，這句沒存'); }
+async function finish() {
+  if (!rec || saving) return;
+  if (!rec.armed) { clearTimeout(rec.timer); rec = null; render(); return toast('還沒開始錄，這句沒存'); }
+  const r = rec; rec = null; saving = true; render();
+  const { blob, dur } = toWav(r.chunks, ctx.sampleRate, Math.max(0, 0.12 - r.delay));
+  if (dur < 0.4) { saving = false; render(); return toast('太短了，沒存'); }
+  if (r.max < 0.12) toast('這句音量有點小：靠近麥克風一點，或把麥克風的增益調高', 4000);
+  const s = P.sentences.find(x => x.id === r.id);
+  try {
+    Object.assign(s, await api(`/api/project/${encodeURIComponent(slug)}/audio?id=${s.id}&dur=${dur.toFixed(2)}`, { method: 'POST', body: blob }));
+    const next = P.sentences.findIndex((x, i) => i > cur && !x.file);
+    if (next >= 0) cur = next; else if (P.sentences.every(x => x.file)) toast('全部錄完了！可以按「全部播放」聽一次，或從「下載」拿檔案', 5000);
+  } catch (e) { toast('存檔失敗：' + e.message, 5000); }
+  saving = false; render();
+}
+function stopPlayAll() { if (!playing) return; playing = false; player.pause(); const b = $('#playall'); if (b) b.textContent = '▶ 全部播放'; }
+function playAll() {
+  if (rec) return;
+  if (playing) return stopPlayAll();
+  let i = P.sentences.findIndex((x, k) => k >= cur && x.file); if (i < 0) i = P.sentences.findIndex(x => x.file);
+  if (i < 0) return toast('還沒有錄好的句子');
+  playing = true; $('#playall').textContent = '■ 停止播放';
+  const step = () => {
+    while (i < P.sentences.length && !P.sentences[i].file) i++;
+    if (!playing || i >= P.sentences.length) return stopPlayAll();
+    cur = i; render();
+    player.src = `/audio/${encodeURIComponent(slug)}/${P.sentences[i].file}?t=${Date.now()}`;
+    player.onended = () => { i++; setTimeout(step, 350); };
+    player.play();
+  };
+  step();
+}
+function restructure() {
+  if (rec) return toast('先完成或取消正在錄的這句');
+  const box = document.createElement('div'); box.className = 'modal';
+  box.innerHTML = `<div class="box"><div style="display:flex;gap:16px;align-items:baseline"><h2 style="flex:1;margin:0">調整斷句</h2><span class="muted small" id="rscnt"></span></div>
+    <p class="muted small" style="margin:0">一行就是一句。兩句要一起講：刪掉中間的換行；一句要拆開：在想切的地方按 Enter。字沒改的句子，錄音會保留。</p>
+    ${lineEditor('rs', P.sentences.map(x => x.text).join('\n'))}
+    <div class="actions" style="margin-top:0"><button class="link" id="rsno">取消</button><button class="primary" id="rsok">儲存</button></div></div>`;
+  document.body.appendChild(box);
+  bindEditor('rs', k => $('#rscnt').textContent = `共 ${k} 句`);
+  $('#rsno').onclick = () => box.remove();
+  $('#rsok').onclick = async () => {
+    const curId = P.sentences[cur] && P.sentences[cur].id;
+    try {
+      P = await api(`/api/project/${encodeURIComponent(slug)}/restructure`, { method: 'POST', body: JSON.stringify({ lines: $('#rs').value.split('\n') }) });
+      cur = Math.max(0, P.sentences.findIndex(x => x.id === curId));
+      box.remove(); render(); toast('斷句已更新');
+    } catch (e) { toast('儲存失敗：' + e.message); }
+  };
+}
+
+/* ---------- 節拍器 ---------- */
+const M = { on: false, next: 0, n: 0, timer: null };
+function setupMetro() {
+  const bpm = $('#bpm'); bpm.value = pref('bpm') || 100; $('#msnd').checked = pref('msnd') === '1';
+  const set = v => { v = Math.max(30, Math.min(240, Math.round(v) || 100)); bpm.value = v; pref('bpm', v); $('#bpmShow').textContent = v; };
+  set(+bpm.value);
+  $('#bm').onclick = () => set(+bpm.value - 5); $('#bp').onclick = () => set(+bpm.value + 5); bpm.onchange = () => set(+bpm.value);
+  $('#msnd').onchange = () => pref('msnd', $('#msnd').checked ? '1' : '0');
+  $('#mt').onclick = () => M.on ? metroStop() : metroStart();
+}
+function metroStart() {
+  if (!ctx) return toast('麥克風還沒開');
+  if (ctx.state === 'suspended') ctx.resume();
+  M.on = true; M.n = 0; M.next = ctx.currentTime + 0.1; M.timer = setInterval(metroTick, 25);
+  $('#mt').textContent = '停止'; $('#metroOn').classList.add('show');
+}
+function metroStop() {
+  M.on = false; clearInterval(M.timer);
+  const b = $('#mt'); if (b) b.textContent = '開始'; const o = $('#metroOn'); if (o) o.classList.remove('show');
+}
+function metroTick() {
+  if (!ctx || !$('#bpm')) return metroStop();
+  const spb = 60 / (+$('#bpm').value || 100);
+  while (M.next < ctx.currentTime + 0.12) {
+    const t = M.next, accent = M.n % 4 === 0;
+    if ($('#msnd').checked) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = accent ? 1500 : 1000; g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.06);
+    }
+    setTimeout(() => { const b = $('#beat'); if (!b) return; b.classList.add('on'); b.classList.toggle('acc', accent); setTimeout(() => b.classList.remove('on', 'acc'), 90); }, Math.max(0, (t - ctx.currentTime) * 1000));
+    M.next += spb; M.n++;
+  }
+}
+
+/* ---------- 鍵盤 ---------- */
+document.addEventListener('keydown', e => {
+  if (!P || !$('#list') || document.querySelector('.modal') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur(); // 空白鍵不要同時按到剛點過的按鈕
+  if (e.code === 'Space') {
+    e.preventDefault(); if (e.repeat) return;
+    if (rec) return finish();
+    if (P.sentences[cur].file && !e.shiftKey) return toast('這句已經錄好了。要重錄請按 Shift＋空白鍵，或按下方「重新錄」', 3500);
+    start();
+  }
+  else if (e.key === 'Escape') cancel();
+  else if (k === 'r' && rec) restart();
+  else if (k === 'p' && !rec) playOne();
+  else if (k === 'm') M.on ? metroStop() : metroStart();
+  else if (e.key === 'ArrowDown' && !rec) { e.preventDefault(); cur = Math.min(P.sentences.length - 1, cur + 1); render(); }
+  else if (e.key === 'ArrowUp' && !rec) { e.preventDefault(); cur = Math.max(0, cur - 1); render(); }
+});
+
+if (location.hash.startsWith('#p=')) openProject(decodeURIComponent(location.hash.slice(3))).catch(home); else home();
+</script>
+</body>
+</html>
