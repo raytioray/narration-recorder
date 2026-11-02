@@ -356,7 +356,13 @@ function meterLoop() {
 function toWav(chunks, rate, headCut = 0.12) {
   let n = chunks.reduce((a, c) => a + c.length, 0);
   const all = new Float32Array(n); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
-  const a = Math.min(Math.floor(rate * headCut), all.length), b = Math.max(a, all.length - Math.floor(rate * 0.25)); // 切掉頭尾按鍵聲
+  let a = Math.min(Math.floor(rate * headCut), all.length), b = Math.max(a, all.length - Math.floor(rate * 0.06)); // 切掉頭尾按鍵聲
+  // 自動修掉前後多餘的空白：找第一個／最後一個有聲音的 10 毫秒，前面留 0.2 秒、後面留 0.3 秒
+  const W = Math.floor(rate * 0.01), loud = i => { let m = 0; for (let j = i; j < Math.min(i + W, b); j++) m = Math.max(m, Math.abs(all[j])); return m > 0.02; };
+  let on = -1, off = -1;
+  for (let i = a; i < b; i += W) if (loud(i)) { on = i; break; }
+  for (let i = b - W; i >= a; i -= W) if (loud(i)) { off = i + W; break; }
+  if (on >= 0) { a = Math.max(a, on - Math.floor(rate * 0.2)); b = Math.min(b, off + Math.floor(rate * 0.3)); }
   const pcm = all.subarray(a, b); n = pcm.length;
   const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
   const w = (p, s) => { for (let i = 0; i < s.length; i++) v.setUint8(p + i, s.charCodeAt(i)); };
@@ -391,9 +397,8 @@ async function openProject(s) {
     </div></div>
     <div class="menu" id="setm"><button>設定 ▾</button><div class="pop">
       <button id="restr">調整斷句…</button>
-      <div class="sec">按下錄音後，等幾秒才開始收音
-        <div class="row" id="delayRow">${[0, 0.2, 0.3, 0.5, 0.8, 1].map(v => `<button data-delay="${v}">${v} 秒</button>`).join('')}</div>
-        <div class="muted small" style="margin-top:4px">按鍵聲、吸氣聲就不會錄進去</div>
+      <div class="sec">按下就開始錄
+        <div class="muted small" style="margin-top:4px">開頭按鍵聲、前後空白，存檔時自動剪掉</div>
       </div>
       <div class="sec">合併音檔時，句子之間停多久
         <div class="row" id="gapRow">${[0.2, 0.35, 0.5, 0.8].map(v => `<button data-gap="${v}">${v} 秒</button>`).join('')}</div>
@@ -418,10 +423,8 @@ async function openProject(s) {
   $('#playall').onclick = playAll;
   setupMetro();
   const mark = () => {
-    document.querySelectorAll('[data-delay]').forEach(b => b.classList.toggle('primary', +b.dataset.delay === +(pref('delay') || 0)));
     document.querySelectorAll('[data-gap]').forEach(b => b.classList.toggle('primary', +b.dataset.gap === +(pref('gap') || 0.35)));
   };
-  document.querySelectorAll('[data-delay]').forEach(b => b.onclick = e => { e.stopPropagation(); pref('delay', b.dataset.delay); mark(); toast(`按下錄音後 ${b.dataset.delay} 秒才開始收音`); });
   document.querySelectorAll('[data-gap]').forEach(b => b.onclick = e => { e.stopPropagation(); pref('gap', b.dataset.gap); mark(); toast(`合併時句子間停 ${b.dataset.gap} 秒`); });
   mark();
   render();
@@ -473,7 +476,7 @@ function dock() {
       ? `<button data-a="play">▶ 聽這句</button><button class="link" data-a="edit">改字</button><button class="link" data-a="del">刪除錄音</button><button class="danger big" data-a="rec">● 重新錄</button>`
       : `<button class="link" data-a="edit">改字</button><button class="danger big" data-a="rec">● 錄音</button>`;
   }
-  $('#btns').querySelectorAll('[data-a]').forEach(b => b.onclick = () => action(b.dataset.a));
+  $('#btns').querySelectorAll('[data-a]').forEach(b => b.dataset.a === 'finish' ? b.onpointerdown = () => action('finish') : b.onclick = () => action(b.dataset.a));
 }
 async function action(a) {
   const s = P.sentences[cur];
@@ -493,21 +496,20 @@ async function action(a) {
   }
 }
 function playOne() { const s = P.sentences[cur]; if (!s.file) return; stopPlayAll(); player.src = `/audio/${encodeURIComponent(slug)}/${s.file}?t=${Date.now()}`; player.onended = null; player.play(); }
-function start() {
+async function start() {
   if (!ctx) return toast('麥克風還沒開');
   if (rec || saving) return;
-  if (ctx.state === 'suspended') ctx.resume();
   stopPlayAll(); player.pause();
-  const delay = +(pref('delay') || 0);
-  rec = { id: P.sentences[cur].id, chunks: [], t0: performance.now() + delay * 1000, max: 0, armed: delay === 0, delay };
-  if (delay) rec.timer = setTimeout(() => { if (rec) { rec.armed = true; rec.t0 = performance.now(); dock(); } }, delay * 1000);
+  if (ctx.state !== 'running') await ctx.resume(); // 麥克風睡著時先叫醒，醒了才開始算
+  if (rec || saving) return;
+  // 按下就開始收音；開頭的按鍵聲、前後的空白，存檔時自動剪掉（11-02 改：舊的「等幾秒才收音」會把開頭的字吃掉）
+  rec = { id: P.sentences[cur].id, chunks: [], t0: performance.now(), max: 0, armed: true, delay: 0 };
   render();
 }
 function restart() {
   if (!rec) return;
   clearTimeout(rec.timer); rec.chunks = []; rec.max = 0;
-  rec.armed = rec.delay === 0; rec.t0 = performance.now() + rec.delay * 1000;
-  if (rec.delay) rec.timer = setTimeout(() => { if (rec) { rec.armed = true; rec.t0 = performance.now(); dock(); } }, rec.delay * 1000);
+  rec.armed = true; rec.t0 = performance.now();
   dock(); toast('重新開始錄這句');
 }
 function cancel() { if (!rec) return; clearTimeout(rec.timer); rec = null; render(); toast('已取消，這句沒存'); }
@@ -515,7 +517,7 @@ async function finish() {
   if (!rec || saving) return;
   if (!rec.armed) { clearTimeout(rec.timer); rec = null; render(); return toast('還沒開始錄，這句沒存'); }
   const r = rec; rec = null; saving = true; render();
-  const { blob, dur } = toWav(r.chunks, ctx.sampleRate, Math.max(0, 0.12 - r.delay));
+  const { blob, dur } = toWav(r.chunks, ctx.sampleRate, 0.12);
   if (dur < 0.4) { saving = false; render(); return toast('太短了，沒存'); }
   if (r.max < 0.12) toast('這句音量有點小：靠近麥克風一點，或把麥克風的增益調高', 4000);
   const s = P.sentences.find(x => x.id === r.id);
