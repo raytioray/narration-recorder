@@ -62,6 +62,7 @@ h2{font-size:18px;margin:0 0 16px;font-weight:700}
 .field{margin-top:16px}
 .field label{display:block;font-size:14px;color:var(--text-2);margin-bottom:8px}
 .field input{width:100%}
+[hidden]{display:none!important}
 .opts{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:16px;font-size:14px;color:var(--text-2)}
 .opts label{display:flex;gap:8px;align-items:center}
 .actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
@@ -167,7 +168,47 @@ const MODES = [
   { v: 25, name: '一般', hint: '約 25 字，一個完整句子', ai: '一句是一個完整的句子，大約 15 到 25 個字' },
   { v: 40, name: '長句', hint: '約 40 字，兩三句連著講', ai: '每段是兩三句連在一起講的話，大約 25 到 40 個字' },
   { v: -1, name: '整段', hint: '照原稿的段落', ai: '照原稿的段落分，一個段落一行，段落太長（超過 80 字）再從句號切開' },
+  { v: -2, name: '照秒數', hint: '自己設定每句幾秒到幾秒', ai: '' },
 ];
+/* 照秒數斷句：用「念起來的長度」算，中文一字 1、英文一個字 1.5、數字照位數 */
+const units = s => { let u = 0; String(s).replace(/[A-Za-z]+(?:['’][A-Za-z]+)*|\d+(?:[.,]\d+)*|[\u3400-\u9fff]/g, m => { u += /^[A-Za-z]/.test(m) ? 1.5 : /^\d/.test(m) ? Math.min(6, m.replace(/\D/g, '').length * 1.2) : 1; }); return u; };
+const SEC = { lo: () => +(pref('slo') || 8), hi: () => +(pref('shi') || 15), rate: () => +(pref('rate') || 0) || null };
+let myRate = null; // 從錄過的句子算出來的語速（每秒幾個字）
+async function loadRate() {
+  try {
+    const xs = await api('/api/samples');
+    const r = xs.filter(x => x.dur >= 1.5).map(x => units(x.text) / x.dur).filter(v => v > 1 && v < 10).sort((a, b) => a - b);
+    if (r.length >= 10) myRate = { v: Math.round(r[r.length >> 1] * 10) / 10, n: r.length };
+  } catch (e) {}
+  return myRate;
+}
+const rateNow = () => SEC.rate() || (myRate && myRate.v) || 4;
+function splitBySeconds(t, lo, hi, rate, dropNotes) {
+  const L = lo * rate, Hh = hi * rate;
+  if (dropNotes) t = t.replace(/[（(【\[〔][^）)】\]〕\n]*[）)】\]〕]/g, '');
+  const pieces = [];
+  for (let line of t.replace(/\r/g, '').split(/\n+/)) {
+    line = line.replace(/^\s*(#+|[-*•>]|\d+[.、])\s*/, '').trim();
+    if (!line || /^```/.test(line)) continue;
+    for (let s of line.match(/[^。！？!?；;…]+[。！？!?；;…」』”"]*|[。！？!?；;…]+/g) || [line]) {
+      s = s.trim(); if (!s || /^[。！？!?；;…，,\s]+$/.test(s)) continue;
+      if (units(s) > Hh) { // 太長的一句從逗號切開
+        let cur = '';
+        for (const g of s.match(/[^，,、：:]+[，,、：:]?/g) || [s]) { if (cur && units(cur + g) > Hh) { pieces.push(cur); cur = g; } else cur += g; }
+        if (cur) pieces.push(cur);
+      } else pieces.push(s);
+    }
+  }
+  const join = (a, b) => /[A-Za-z0-9]$/.test(a) && /^[A-Za-z0-9]/.test(b) ? a + ' ' + b : a + b;
+  const out = []; let cur = '';
+  for (const pc of pieces) {
+    if (!cur) cur = pc;
+    else if (units(cur) < L && units(join(cur, pc)) <= Hh) cur = join(cur, pc);
+    else { out.push(cur); cur = pc; }
+  }
+  if (cur) { if (out.length && units(cur) < L && units(join(out[out.length - 1], cur)) <= Hh * 1.1) out[out.length - 1] = join(out[out.length - 1], cur); else out.push(cur); }
+  return out;
+}
 function splitScript(t, max, dropNotes) {
   t = t.replace(/\r/g, '');
   if (max === -1) { // 整段：只照原稿換行分段
@@ -224,6 +265,7 @@ async function home() {
   leaveProject(); $('#crumb').textContent = '';
   if (location.hash) history.replaceState(null, '', location.pathname);
   let max = +(pref('mode') || 15); if (!MODES.some(m => m.v === max)) max = 15;
+  if (!myRate) await loadRate();
   app.innerHTML = `${steps(1)}
   <div class="home">
     <section class="panel">
@@ -235,6 +277,11 @@ async function home() {
         <label>每次錄多長 <select id="max">${MODES.map(m => `<option value="${m.v}" ${m.v === max ? 'selected' : ''}>${m.name}（${m.hint}）</option>`).join('')}</select></label>
         <label><input type="checkbox" id="notes" checked>去掉括號裡的畫面說明</label>
       </div>
+      <div class="opts" id="secopt" ${max === -2 ? '' : 'hidden'}>
+        <label>每句 <input id="slo" type="number" min="2" max="60" step="1" value="${SEC.lo()}" style="width:4.5em"> 到 <input id="shi" type="number" min="3" max="90" step="1" value="${SEC.hi()}" style="width:4.5em"> 秒</label>
+        <label>語速每秒 <input id="rate" type="number" min="1" max="10" step="0.1" value="${rateNow()}" style="width:4.5em"> 字</label>
+        <span class="muted small" id="ratenote"></span>
+      </div>
       <div class="actions"><button id="ai">用 AI 斷句…</button><button class="primary" id="go">下一步：調整斷句</button></div>
     </section>
     <section>
@@ -242,11 +289,21 @@ async function home() {
       <div id="list" class="empty">讀取中…</div>
     </section>
   </div>`;
+  const rateNote = () => $('#ratenote').textContent = SEC.rate() ? '（你自己填的）' : myRate ? `（從你錄過的 ${myRate.n} 句算的）` : '（還沒錄過，先用一般語速；錄過 10 句後會自動換成你的）';
+  rateNote();
+  $('#max').onchange = () => $('#secopt').hidden = +$('#max').value !== -2;
+  $('#slo').onchange = () => pref('slo', $('#slo').value);
+  $('#shi').onchange = () => pref('shi', $('#shi').value);
+  $('#rate').onchange = () => { pref('rate', $('#rate').value); rateNote(); };
   $('#title').oninput = e => draft.title = e.target.value;
   $('#script').oninput = e => draft.script = e.target.value;
   $('#go').onclick = () => {
     pref('mode', $('#max').value);
-    const lines = splitScript($('#script').value, +$('#max').value, $('#notes').checked);
+    const mode = +$('#max').value;
+    let lo = +$('#slo').value, hi = +$('#shi').value;
+    if (mode === -2 && !(lo > 0 && hi > lo)) return toast('秒數要填「幾秒到幾秒」，後面要比前面大');
+    const lines = mode === -2 ? splitBySeconds($('#script').value, lo, hi, +$('#rate').value || rateNow(), $('#notes').checked)
+      : splitScript($('#script').value, mode, $('#notes').checked);
     if (!lines.length) return toast('先貼上逐字稿');
     review(lines);
   };
@@ -292,7 +349,9 @@ function aiSplit() {
   document.body.appendChild(box);
   $('#cp').onclick = async () => {
     const mode = MODES.find(m => m.v === +$('#max').value) || MODES[0];
-    const text = AI_PROMPT.replace('{LEN}', mode.ai) + script;
+    const r = +$('#rate').value || rateNow(), lo = +$('#slo').value || 8, hi = +$('#shi').value || 15;
+    const len = mode.v === -2 ? `每段念起來大約 ${lo} 到 ${hi} 秒，也就是大約 ${Math.round(lo * r)} 到 ${Math.round(hi * r)} 個字，可以兩三句連在一起` : mode.ai;
+    const text = AI_PROMPT.replace('{LEN}', len) + script;
     try { await navigator.clipboard.writeText(text); toast('已複製，去 AI 那邊貼上'); }
     catch (e) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); toast('已複製'); }
   };
@@ -314,7 +373,10 @@ function review(lines) {
     ${lineEditor('lines', lines.join('\n'))}
     <div class="actions"><button class="link" id="back">‹ 回去改逐字稿</button><button class="primary" id="create">開始錄音</button></div>
   </section>`;
-  bindEditor('lines', k => $('#cnt').textContent = `共 ${k} 句`);
+  bindEditor('lines', k => {
+    const r = rateNow(), secs = $('#lines').value.split('\n').filter(x => x.trim()).map(x => units(x) / r);
+    $('#cnt').textContent = secs.length ? `共 ${k} 句｜每句約 ${Math.round(Math.min(...secs))} 到 ${Math.round(Math.max(...secs))} 秒` : `共 ${k} 句`;
+  });
   $('#back').onclick = home;
   $('#create').onclick = async () => {
     const sentences = $('#lines').value.split('\n').map(x => x.trim()).filter(Boolean);

@@ -181,6 +181,17 @@ class H(BaseHTTPRequestHandler):
                                 "total": len(p["sentences"]), "done": done})
                 out.sort(key=lambda x: x["created"], reverse=True)
                 return self.send(200, out)
+            if path == "/api/samples":  # 錄好的句子（字＋秒數），前端拿來算你的語速
+                out = []
+                for sl in sorted(os.listdir(DATA), reverse=True) if os.path.isdir(DATA) else []:
+                    try:
+                        p = load(sl)
+                    except Exception:
+                        continue
+                    out += [{"text": x["text"], "dur": x["dur"]} for x in p["sentences"] if x.get("file") and x.get("dur")]
+                    if len(out) >= 400:
+                        break
+                return self.send(200, out[:400])
             m = re.match(r"^/api/project/([^/]+)$", path)
             if m:
                 return self.send(200, load(m.group(1)))
@@ -235,7 +246,9 @@ class H(BaseHTTPRequestHandler):
                 if data[:4] != b"RIFF":
                     return self.send(400, {"error": "不是 WAV"})
                 p = load(slug)
-                s = next(x for x in p["sentences"] if x["id"] == sid)
+                s = next((x for x in p["sentences"] if x["id"] == sid), None)
+                if s is None:  # 稿子在別處改過（例如調整斷句），這個頁面還是舊的
+                    return self.send(409, {"error": "稿子剛改過，請重新整理頁面再錄"})
                 fn = f"{sid:03d}.wav"
                 if s.get("file"):  # 重錄：舊的先移到 _刪除/，不直接蓋掉
                     trash(slug, s)
